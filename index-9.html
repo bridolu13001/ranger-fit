@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14160f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>RANGER·FIT</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Crect%20width%3D%2764%27%20height%3D%2764%27%20rx%3D%2712%27%20fill%3D%27%2314160f%27/%3E%3Cg%20stroke%3D%27%23e0a92e%27%20stroke-width%3D%274%27%20fill%3D%27none%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M14%2030%20L32%2019%20L50%2030%27/%3E%3Cpath%20d%3D%27M14%2040%20L32%2029%20L50%2040%27/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Crect%20width%3D%2764%27%20height%3D%2764%27%20rx%3D%2712%27%20fill%3D%27%2314160f%27/%3E%3Cg%20stroke%3D%27%23e0a92e%27%20stroke-width%3D%274%27%20fill%3D%27none%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M14%2030%20L32%2019%20L50%2030%27/%3E%3Cpath%20d%3D%27M14%2040%20L32%2029%20L50%2040%27/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22RANGER%C2%B7FIT%20%E2%80%94%20Calisth%C3%A9nie%20militaire%22%2C%20%22short_name%22%3A%20%22RANGER%C2%B7FIT%22%2C%20%22start_url%22%3A%20%22.%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22orientation%22%3A%20%22portrait%22%2C%20%22background_color%22%3A%20%22%2314160f%22%2C%20%22theme_color%22%3A%20%22%2314160f%22%7D" />
+<style>html,body{margin:0;background:#14160f}#boot{color:#9a9c86;font-family:system-ui;padding:24px;text-align:center}</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+</head>
+<body>
+<div id="root"><div id="boot">Chargement de RANGER·FIT…</div></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+
+/* =========================================================================
+   RANGER FIT — Calisthénie militaire
+   App perso pour Frédéric BEGUIN — 48 ans, 1.69 m, 100 kg, objectif 75 kg
+   Priorité : pectoraux / abdominaux / bras — niveau débutant sécurisé.
+   Voix féminine FR (Web Speech API), minuteur, séries, repos, wake lock,
+   démonstrations animées SVG + emplacement vidéo par exercice.
+   ========================================================================= */
+
+/* ---------- Palette « manuel de terrain » (olive / sable / traceur) ------ */
+const C = {
+  bg: "#14160f",        // olive-noir
+  panel: "#1c1f16",     // panneau
+  panel2: "#242819",
+  line: "#3a3f2c",      // hairline kaki
+  sand: "#e7e3d2",      // texte principal (os / sable)
+  mute: "#9a9c86",      // texte secondaire
+  tracer: "#e0a92e",    // ambre traceur (accent)
+  go: "#8aa63b",        // vert opération
+  danger: "#c0603a",    // terre brûlée (impact / alerte)
+};
+
+/* ---------------------------- BIBLIOTHÈQUE ------------------------------- */
+/* type: 'reps' | 'time' ; cible par niveau [débutant, inter, avancé]
+   anim : motif de démonstration animée ; impact : haute intensité articulaire */
+const EX = {
+  // Échauffement
+  marche:   { nom:"Marche sur place",         zone:"echauffement", muscles:"Cardio", type:"time", cible:[40,45,60], repos:10, anim:"jack", impact:false, cue:"On monte les genoux, on respire.", reg:"Ralentis le rythme.", prog:"Monte les genoux plus haut." },
+  cercles:  { nom:"Cercles de bras",          zone:"echauffement", muscles:"Épaules", type:"time", cible:[30,30,40], repos:10, anim:"cercles", impact:false, cue:"Grands cercles, épaules souples.", reg:"Petits cercles.", prog:"Amplitude maximale." },
+  rot:      { nom:"Rotations du buste",       zone:"echauffement", muscles:"Tronc", type:"time", cible:[30,30,40], repos:10, anim:"rot", impact:false, cue:"On mobilise le bassin en douceur.", reg:"Amplitude réduite.", prog:"Ajoute les hanches." },
+
+  // Pecs / bras
+  pompeMur: { nom:"Pompes au mur",            zone:"pecs-bras", muscles:"Pectoraux, triceps", type:"reps", cible:[12,16,20], repos:40, anim:"pushup", impact:false, cue:"Corps gainé, on pousse le mur.", reg:"Recule moins les pieds.", prog:"Passe aux pompes inclinées." },
+  pompeInc: { nom:"Pompes inclinées (banc)",  zone:"pecs-bras", muscles:"Pectoraux, triceps", type:"reps", cible:[10,14,18], repos:45, anim:"pushup", impact:false, cue:"Mains sur le banc, descente contrôlée.", reg:"Plus haute l'inclinaison, plus facile.", prog:"Baisse l'appui vers le sol." },
+  pompeGen: { nom:"Pompes sur genoux",        zone:"pecs-bras", muscles:"Pectoraux, triceps", type:"reps", cible:[8,12,16], repos:45, anim:"pushup", impact:false, cue:"Bassin gainé, ligne épaules-genoux.", reg:"Reste sur pompes inclinées.", prog:"Passe aux pompes classiques." },
+  pompe:    { nom:"Pompes classiques",        zone:"pecs-bras", muscles:"Pectoraux, triceps, épaules", type:"reps", cible:[6,12,20], repos:50, anim:"pushup", impact:false, cue:"Coudes à 45°, poitrine vers le sol.", reg:"Repasse sur genoux si la forme casse.", prog:"Tempo lent, 3 secondes à la descente." },
+  pompeDia: { nom:"Pompes diamant",           zone:"pecs-bras", muscles:"Triceps, pectoraux interne", type:"reps", cible:[5,8,14], repos:50, anim:"pushup", impact:false, cue:"Mains en losange sous la poitrine.", reg:"Diamant sur genoux.", prog:"Ralentis la descente." },
+  pompeLar: { nom:"Pompes larges",            zone:"pecs-bras", muscles:"Pectoraux (largeur)", type:"reps", cible:[6,10,16], repos:50, anim:"pushup", impact:false, cue:"Mains larges, on ouvre la poitrine.", reg:"Sur genoux.", prog:"Ajoute une pause en bas." },
+  dips:     { nom:"Dips sur chaise",          zone:"pecs-bras", muscles:"Triceps, pectoraux bas", type:"reps", cible:[8,12,18], repos:45, anim:"dips", impact:false, flags:["epaules"], cue:"Coudes vers l'arrière, épaules basses.", reg:"Pieds près du corps.", prog:"Éloigne les pieds." },
+  pompeSer: { nom:"Pompes serrées",           zone:"pecs-bras", muscles:"Triceps", type:"reps", cible:[6,10,15], repos:45, anim:"pushup", impact:false, cue:"Coudes le long du corps.", reg:"Sur genoux.", prog:"Descente 3 secondes." },
+  tracAus:  { nom:"Tractions australiennes",  zone:"dos", muscles:"Dos, biceps", type:"reps", cible:[8,12,16], repos:50, anim:"row", impact:false, cue:"Table basse ou barre : on tire la poitrine.", reg:"Redresse le buste (angle plus vertical).", prog:"Allonge le corps à l'horizontale." },
+  tracNeg:  { nom:"Tractions négatives",      zone:"dos", muscles:"Dos, biceps", type:"reps", cible:[3,5,8], repos:60, anim:"row", impact:false, cue:"On saute en haut, descente la plus lente possible.", reg:"Tractions australiennes d'abord.", prog:"Vise 8 à 10 secondes de descente." },
+
+  // Abdos / gainage
+  gainage:  { nom:"Gainage (planche)",        zone:"abdos", muscles:"Sangle abdominale", type:"time", cible:[20,40,60], repos:40, anim:"plank", impact:false, cue:"Ligne tête-talons, on serre les fessiers.", reg:"Planche sur genoux.", prog:"Planche longue (bras tendus loin)." },
+  gainGen:  { nom:"Planche sur genoux",       zone:"abdos", muscles:"Sangle abdominale", type:"time", cible:[20,30,45], repos:30, anim:"plank", impact:false, cue:"Appui genoux, dos plat.", reg:"Réduis la durée.", prog:"Passe à la planche complète." },
+  gainLat:  { nom:"Planche latérale",         zone:"abdos", muscles:"Obliques", type:"time", cible:[15,25,40], repos:30, anim:"plank", impact:false, cue:"Hanche haute, corps aligné. Change de côté.", reg:"Genou du bas au sol.", prog:"Lève la jambe du dessus." },
+  battement:{ nom:"Battements de jambes",     zone:"abdos", muscles:"Bas des abdos", type:"time", cible:[25,35,45], repos:30, anim:"legraise", impact:false, flags:["dos"], cue:"Bas du dos plaqué au sol.", reg:"Mains sous les fessiers.", prog:"Jambes plus basses." },
+  releves:  { nom:"Relevés de jambes",        zone:"abdos", muscles:"Bas des abdos", type:"reps", cible:[10,15,20], repos:30, anim:"legraise", impact:false, flags:["dos"], cue:"Descente contrôlée, dos plaqué.", reg:"Genoux pliés.", prog:"Jambes tendues, tempo lent." },
+  crunch:   { nom:"Relevés de buste",         zone:"abdos", muscles:"Grand droit", type:"reps", cible:[12,18,25], repos:30, anim:"situp", impact:false, cue:"On enroule le buste, menton décollé.", reg:"Amplitude courte.", prog:"Mains derrière la tête." },
+  russian:  { nom:"Russian twists",           zone:"abdos", muscles:"Obliques", type:"time", cible:[30,40,50], repos:30, anim:"twist", impact:false, cue:"Buste incliné, on tourne d'un côté à l'autre.", reg:"Pieds au sol.", prog:"Décolle les pieds." },
+  hollow:   { nom:"Hollow hold (bateau)",     zone:"abdos", muscles:"Sangle profonde", type:"time", cible:[15,25,35], repos:35, anim:"hollow", impact:false, flags:["dos"], cue:"Bas du dos au sol, bras et jambes tendus.", reg:"Genoux et bras repliés.", prog:"Allonge les leviers." },
+  climber:  { nom:"Mountain climbers",        zone:"abdos", muscles:"Abdos, cardio", type:"time", cible:[25,35,45], repos:30, anim:"climber", impact:true, flags:["poignets"], cue:"Bassin stable, genoux vers la poitrine.", reg:"Ralentis la cadence.", prog:"Accélère le rythme." },
+  superman: { nom:"Superman",                 zone:"dos", muscles:"Lombaires, dos", type:"time", cible:[20,30,40], repos:30, anim:"superman", impact:false, cue:"On décolle bras et jambes, regard au sol.", reg:"Décolle seulement les bras.", prog:"Maintiens 2 secondes en haut." },
+
+  // Jambes
+  squat:    { nom:"Squats",                   zone:"jambes", muscles:"Cuisses, fessiers", type:"reps", cible:[12,18,25], repos:40, anim:"squat", impact:false, flags:["genoux"], cue:"On pousse les fessiers en arrière, dos droit.", reg:"Squat sur chaise (touche et remonte).", prog:"Descends plus bas, tempo lent." },
+  fentes:   { nom:"Fentes",                   zone:"jambes", muscles:"Cuisses, fessiers", type:"reps", cible:[8,12,16], repos:40, anim:"lunge", impact:false, flags:["genoux"], cue:"Grand pas, genou arrière vers le sol.", reg:"Amplitude réduite, appui mur.", prog:"Fentes marchées." },
+  chaise:   { nom:"Chaise (wall sit)",        zone:"jambes", muscles:"Quadriceps", type:"time", cible:[25,40,60], repos:40, anim:"wallsit", impact:false, flags:["genoux"], cue:"Cuisses parallèles au sol, dos au mur.", reg:"Remonte légèrement.", prog:"Descends jusqu'à 90°." },
+  mollets:  { nom:"Mollets debout",           zone:"jambes", muscles:"Mollets", type:"reps", cible:[15,25,35], repos:25, anim:"calf", impact:false, cue:"On monte sur la pointe, on contrôle.", reg:"Appui sur un mur.", prog:"Un pied à la fois." },
+  genoux:   { nom:"Montées de genoux",        zone:"cardio", muscles:"Cardio, hanches", type:"time", cible:[25,35,45], repos:25, anim:"highknee", impact:true, flags:["genoux"], cue:"Genoux hauts, gainage actif.", reg:"Sans sauter, marche rapide.", prog:"Cadence maximale." },
+
+  // Conditionnement
+  jack:     { nom:"Jumping jacks",            zone:"cardio", muscles:"Cardio, épaules", type:"time", cible:[30,40,50], repos:25, anim:"jack", impact:true, flags:["genoux"], cue:"Bras et jambes synchronisés.", reg:"Sans saut : un pied sur le côté à la fois.", prog:"Accélère." },
+  burpeeL:  { nom:"Burpees (sans saut)",      zone:"cardio", muscles:"Full body", type:"reps", cible:[6,10,14], repos:50, anim:"burpee", impact:false, flags:["poignets"], cue:"Squat, planche, retour debout — sans saut.", reg:"Pose les mains sur un banc.", prog:"Ajoute une pompe." },
+  burpee:   { nom:"Burpees complets",         zone:"cardio", muscles:"Full body", type:"reps", cible:[5,8,12], repos:60, anim:"burpee", impact:true, flags:["genoux","poignets"], cue:"Enchaîne pompe et saut, dos gainé.", reg:"Retire le saut.", prog:"Enchaîne sans pause." },
+  course:   { nom:"Course sur place",         zone:"cardio", muscles:"Cardio", type:"time", cible:[40,50,60], repos:25, anim:"jack", impact:true, flags:["genoux"], cue:"Foulée souple, on garde le rythme.", reg:"Marche rapide.", prog:"Ajoute des accélérations." },
+};
+
+/* ---------------------- VIDÉOS DE DÉMONSTRATION -------------------------
+   IDs YouTube vérifiés par recherche web (vraies personnes, en français).
+   Chaîne Decathlon pour l'essentiel + coach débutant pour les fentes.
+   Les exercices absents de cette table ouvrent une RECHERCHE YouTube ciblée
+   (toujours vivante, jamais de lien mort). */
+const VIDEOS = {
+  // Pompes (Decathlon) — réutilisé pour toutes les variantes de pompes
+  pompe:"50Yr6Mm78u0", pompeGen:"50Yr6Mm78u0", pompeInc:"50Yr6Mm78u0", pompeMur:"50Yr6Mm78u0",
+  pompeDia:"50Yr6Mm78u0", pompeLar:"50Yr6Mm78u0", pompeSer:"50Yr6Mm78u0",
+  squat:"OMNnle4yTT8",                         // Squats (Decathlon)
+  fentes:"TryHG3vXezs",                        // Fentes débutant (coach)
+  gainage:"pHrzdyFNB24", gainGen:"pHrzdyFNB24", gainLat:"pHrzdyFNB24", // Gainage (Decathlon)
+  climber:"5G---k3et1k",                       // Mountain climbers (Decathlon)
+  jack:"kefNHIKaNkU",                          // Jumping jacks (Decathlon)
+};
+const ytEmbed  = (id) => `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1`;
+const ytWatch  = (id) => `https://www.youtube.com/watch?v=${id}`;
+const ytSearch = (nom) => `https://www.youtube.com/results?search_query=${encodeURIComponent(nom + " exercice technique débutant")}`;
+
+/* ------------------------ SÉANCES PRÉDÉFINIES --------------------------- */
+const SEANCES = {
+  pecsbras: { titre:"Pecs & Bras",   sous:"Ta priorité — haut du corps", zone:"pecs-bras",
+    ex:["pompeInc","pompe","pompeDia","dips","pompeSer","tracAus","gainage"] },
+  abdos:    { titre:"Abdos & Gainage", sous:"Sangle abdominale complète", zone:"abdos",
+    ex:["gainage","battement","releves","russian","crunch","hollow","climber"] },
+  jambes:   { titre:"Jambes",         sous:"Bas du corps, faible impact", zone:"jambes",
+    ex:["squat","fentes","chaise","mollets","genoux"] },
+  full:     { titre:"Full Body militaire", sous:"Circuit complet type PRT", zone:"cardio",
+    ex:["pompe","squat","climber","burpeeL","gainage","jack","fentes","battement"] },
+  cardio:   { titre:"Conditionnement", sous:"Cardio & endurance", zone:"cardio",
+    ex:["jack","genoux","climber","burpeeL","course","gainage"] },
+};
+
+/* Rotation 6 jours (type basic training) : 3 force-endurance, 2 condition, 1 long, 1 repos */
+const ROTATION = ["pecsbras","cardio","abdos","full","jambes","full","repos"]; // dim..sam via index
+
+const NIVEAUX = ["Débutant", "Intermédiaire", "Avancé"];
+const CONDITIONS = [
+  { id:"genoux", label:"Genoux sensibles" },
+  { id:"epaules", label:"Épaules fragiles" },
+  { id:"poignets", label:"Poignets sensibles" },
+  { id:"dos", label:"Dos / lombaires" },
+  { id:"cardio", label:"Cœur / tension (éviter impact)" },
+];
+
+/* ============================ VOIX FR =================================== */
+function useVoice() {
+  const voiceRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const pick = () => {
+      const vs = window.speechSynthesis.getVoices().filter(v => /fr/i.test(v.lang));
+      if (!vs.length) return;
+      const fem = vs.find(v => /(amélie|amelie|audrey|hortense|julie|virginie|marie|female|femme)/i.test(v.name))
+        || vs.find(v => /google/i.test(v.name)) || vs[0];
+      voiceRef.current = fem;
+      setReady(true);
+    };
+    pick();
+    window.speechSynthesis.onvoiceschanged = pick;
+  }, []);
+  const speak = useCallback((text, { rate = 1, enabled = true } = {}) => {
+    if (!enabled || !("speechSynthesis" in window) || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "fr-FR"; u.rate = rate; u.pitch = 1.05;
+      if (voiceRef.current) u.voice = voiceRef.current;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* silencieux */ }
+  }, []);
+  return { speak, ready };
+}
+
+/* ============================ BIP AUDIO ================================= */
+function useBeep() {
+  const ctxRef = useRef(null);
+  const arm = useCallback(() => {
+    if (!ctxRef.current) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) ctxRef.current = new AC();
+    }
+    if (ctxRef.current && ctxRef.current.state === "suspended") ctxRef.current.resume();
+  }, []);
+  const beep = useCallback((freq = 660, ms = 120) => {
+    const ctx = ctxRef.current; if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq; o.type = "sine";
+    o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + ms / 1000);
+    o.start(); o.stop(ctx.currentTime + ms / 1000);
+  }, []);
+  return { arm, beep };
+}
+
+/* ============================ WAKE LOCK ================================= */
+function useWakeLock(active) {
+  const ref = useRef(null);
+  useEffect(() => {
+    let cancelled = false;
+    const req = async () => {
+      try {
+        if (active && "wakeLock" in navigator) {
+          ref.current = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) {}
+    };
+    const onVis = () => { if (active && document.visibilityState === "visible") req(); };
+    if (active) { req(); document.addEventListener("visibilitychange", onVis); }
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+      try { ref.current && ref.current.release(); } catch (e) {}
+      ref.current = null;
+    };
+  }, [active]);
+}
+
+/* ====================== DÉMONSTRATIONS ANIMÉES ========================= */
+/* Silhouettes animées (démonstration, non photoréaliste). Chaque exercice
+   pointe vers un motif ; on partage les motifs pour rester léger. */
+const ANIM_CSS = `
+@keyframes rf-pushup { 0%,100%{transform:translateY(0)} 50%{transform:translateY(9px)} }
+@keyframes rf-squat  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(14px)} }
+@keyframes rf-jackL  { 0%,100%{transform:rotate(8deg)} 50%{transform:rotate(38deg)} }
+@keyframes rf-jackR  { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(-38deg)} }
+@keyframes rf-armU   { 0%,100%{transform:rotate(150deg)} 50%{transform:rotate(35deg)} }
+@keyframes rf-armU2  { 0%,100%{transform:rotate(-150deg)} 50%{transform:rotate(-35deg)} }
+@keyframes rf-breathe{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+@keyframes rf-kneeL  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px) translateX(6px)} }
+@keyframes rf-kneeR  { 0%,50%{transform:translateY(0)} 25%{transform:translateY(-10px) translateX(-6px)} 100%{transform:translateY(0)} }
+@keyframes rf-leg    { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(-52deg)} }
+@keyframes rf-sit    { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-34deg)} }
+@keyframes rf-twist  { 0%,100%{transform:rotate(-16deg)} 50%{transform:rotate(16deg)} }
+@keyframes rf-spin   { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+`;
+
+function Demo({ anim, videoUrl }) {
+  const stroke = C.sand, hip = C.tracer;
+  const line = (props) => <line stroke={stroke} strokeWidth="7" strokeLinecap="round" {...props} />;
+  const head = (cx, cy) => <circle cx={cx} cy={cy} r="12" fill={C.tracer} />;
+  const ground = <line x1="20" y1="150" x2="220" y2="150" stroke={C.line} strokeWidth="3" />;
+
+  if (videoUrl) {
+    return <video src={videoUrl} autoPlay muted loop playsInline
+      style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:12 }} />;
+  }
+
+  let body;
+  switch (anim) {
+    case "pushup":
+      body = (<g style={{ transformOrigin:"120px 90px", animation:"rf-pushup 1.6s ease-in-out infinite" }}>
+        {line({x1:50,y1:120,x2:180,y2:120})}{/* torse */}
+        {head(190,116)}
+        {line({x1:70,y1:120,x2:70,y2:150})}{line({x1:150,y1:120,x2:150,y2:150})}
+        {line({x1:110,y1:120,x2:110,y2:150})}
+      </g>); break;
+    case "plank":
+      body = (<g style={{ transformOrigin:"120px 110px", animation:"rf-breathe 2.4s ease-in-out infinite" }}>
+        {line({x1:50,y1:118,x2:180,y2:112})}{head(192,108)}
+        {line({x1:60,y1:118,x2:60,y2:150})}{line({x1:165,y1:114,x2:170,y2:150})}
+      </g>); break;
+    case "squat":
+      body = (<g style={{ transformOrigin:"120px 60px", animation:"rf-squat 1.8s ease-in-out infinite" }}>
+        {head(120,40)}{line({x1:120,y1:52,x2:120,y2:95})}
+        {line({x1:120,y1:70,x2:95,y2:88})}{line({x1:120,y1:70,x2:145,y2:88})}
+        {line({x1:120,y1:95,x2:100,y2:150})}{line({x1:120,y1:95,x2:140,y2:150})}
+      </g>); break;
+    case "lunge":
+      body = (<g>{head(120,45)}{line({x1:120,y1:57,x2:120,y2:100})}
+        {line({x1:120,y1:100,x2:80,y2:150})}
+        <g style={{ transformOrigin:"120px 100px", animation:"rf-leg 1.8s ease-in-out infinite" }}>
+          {line({x1:120,y1:100,x2:160,y2:150})}</g>
+        {line({x1:120,y1:72,x2:100,y2:95})}{line({x1:120,y1:72,x2:140,y2:95})}</g>); break;
+    case "jack":
+      body = (<g>{head(120,40)}{line({x1:120,y1:52,x2:120,y2:105})}
+        <g style={{ transformOrigin:"120px 60px", animation:"rf-armU 0.8s ease-in-out infinite" }}>{line({x1:120,y1:60,x2:150,y2:60})}</g>
+        <g style={{ transformOrigin:"120px 60px", animation:"rf-armU2 0.8s ease-in-out infinite" }}>{line({x1:120,y1:60,x2:90,y2:60})}</g>
+        <g style={{ transformOrigin:"120px 105px", animation:"rf-jackL 0.8s ease-in-out infinite" }}>{line({x1:120,y1:105,x2:120,y2:150})}</g>
+        <g style={{ transformOrigin:"120px 105px", animation:"rf-jackR 0.8s ease-in-out infinite" }}>{line({x1:120,y1:105,x2:120,y2:150})}</g></g>); break;
+    case "highknee":
+      body = (<g>{head(120,42)}{line({x1:120,y1:54,x2:120,y2:100})}
+        <g style={{ transformOrigin:"120px 100px", animation:"rf-kneeL 0.7s ease-in-out infinite" }}>{line({x1:120,y1:100,x2:120,y2:150})}</g>
+        <g style={{ transformOrigin:"120px 100px", animation:"rf-kneeR 0.7s ease-in-out infinite" }}>{line({x1:120,y1:100,x2:120,y2:150})}</g>
+        {line({x1:120,y1:70,x2:100,y2:95})}{line({x1:120,y1:70,x2:140,y2:95})}</g>); break;
+    case "climber":
+      body = (<g>{line({x1:55,y1:115,x2:175,y2:112})}{head(188,108)}
+        {line({x1:65,y1:115,x2:65,y2:150})}{line({x1:160,y1:113,x2:165,y2:150})}
+        <g style={{ transformOrigin:"120px 118px", animation:"rf-kneeL 0.6s ease-in-out infinite" }}>{line({x1:120,y1:118,x2:120,y2:145})}</g></g>); break;
+    case "situp":
+      body = (<g>{line({x1:80,y1:150,x2:130,y2:150})}
+        <g style={{ transformOrigin:"90px 150px", animation:"rf-sit 1.8s ease-in-out infinite" }}>
+          {line({x1:90,y1:150,x2:130,y2:120})}{head(138,112)}</g>
+        {line({x1:130,y1:150,x2:150,y2:120})}{line({x1:150,y1:120,x2:160,y2:150})}</g>); break;
+    case "legraise":
+      body = (<g>{head(60,120)}{line({x1:72,y1:124,x2:120,y2:130})}
+        <g style={{ transformOrigin:"120px 130px", animation:"rf-sit 1.9s ease-in-out infinite" }}>{line({x1:120,y1:130,x2:185,y2:130})}</g></g>); break;
+    case "hollow":
+      body = (<g style={{ transformOrigin:"120px 120px", animation:"rf-breathe 2.4s ease-in-out infinite" }}>
+        {line({x1:60,y1:110,x2:120,y2:128})}{head(52,106)}{line({x1:120,y1:128,x2:185,y2:112})}</g>); break;
+    case "twist":
+      body = (<g>{line({x1:90,y1:150,x2:150,y2:150})}
+        <g style={{ transformOrigin:"120px 140px", animation:"rf-twist 1.2s ease-in-out infinite" }}>
+          {line({x1:120,y1:140,x2:120,y2:100})}{head(120,90)}{line({x1:100,y1:118,x2:140,y2:118})}</g></g>); break;
+    case "superman":
+      body = (<g style={{ transformOrigin:"120px 120px", animation:"rf-breathe 2s ease-in-out infinite" }}>
+        {line({x1:70,y1:130,x2:170,y2:130})}{head(58,126)}
+        {line({x1:70,y1:130,x2:45,y2:118})}{line({x1:170,y1:130,x2:195,y2:118})}</g>); break;
+    case "dips":
+      body = (<g style={{ transformOrigin:"120px 70px", animation:"rf-pushup 1.7s ease-in-out infinite" }}>
+        {head(120,55)}{line({x1:120,y1:67,x2:120,y2:110})}
+        {line({x1:120,y1:75,x2:95,y2:105})}{line({x1:120,y1:75,x2:145,y2:105})}
+        {line({x1:120,y1:110,x2:120,y2:150})}</g>); break;
+    case "row":
+      body = (<g style={{ transformOrigin:"90px 100px", animation:"rf-pushup 1.6s ease-in-out infinite" }}>
+        {line({x1:70,y1:110,x2:170,y2:100})}{head(60,112)}
+        {line({x1:150,y1:102,x2:150,y2:70})}{line({x1:120,y1:105,x2:120,y2:70})}</g>); break;
+    case "wallsit":
+      body = (<g>{line({x1:60,y1:60,x2:60,y2:150})}{/* mur */}
+        {head(85,80)}{line({x1:85,y1:92,x2:85,y2:120})}
+        {line({x1:85,y1:120,x2:140,y2:120})}{line({x1:140,y1:120,x2:140,y2:150})}</g>); break;
+    case "calf":
+      body = (<g style={{ transformOrigin:"120px 150px", animation:"rf-pushup 1.4s ease-in-out infinite" }}>
+        {head(120,45)}{line({x1:120,y1:57,x2:120,y2:110})}{line({x1:120,y1:110,x2:120,y2:150})}
+        {line({x1:120,y1:72,x2:100,y2:95})}{line({x1:120,y1:72,x2:140,y2:95})}</g>); break;
+    case "burpee":
+      body = (<g style={{ transformOrigin:"120px 90px", animation:"rf-squat 1.5s ease-in-out infinite" }}>
+        {head(120,55)}{line({x1:120,y1:67,x2:120,y2:105})}
+        {line({x1:120,y1:80,x2:98,y2:100})}{line({x1:120,y1:80,x2:142,y2:100})}
+        {line({x1:120,y1:105,x2:102,y2:150})}{line({x1:120,y1:105,x2:138,y2:150})}</g>); break;
+    case "cercles":
+      body = (<g>{head(120,50)}{line({x1:120,y1:62,x2:120,y2:120})}{line({x1:120,y1:120,x2:105,y2:150})}{line({x1:120,y1:120,x2:135,y2:150})}
+        <g style={{ transformOrigin:"120px 75px", animation:"rf-spin 1.4s linear infinite" }}>{line({x1:120,y1:75,x2:155,y2:75})}</g>
+        <g style={{ transformOrigin:"120px 75px", animation:"rf-spin 1.4s linear infinite reverse" }}>{line({x1:120,y1:75,x2:85,y2:75})}</g></g>); break;
+    case "rot":
+      body = (<g>{line({x1:105,y1:150,x2:135,y2:150})}
+        <g style={{ transformOrigin:"120px 140px", animation:"rf-twist 1.6s ease-in-out infinite" }}>
+          {line({x1:120,y1:140,x2:120,y2:90})}{head(120,80)}{line({x1:95,y1:110,x2:145,y2:110})}</g></g>); break;
+    default:
+      body = (<g style={{ transformOrigin:"120px 95px", animation:"rf-breathe 2s ease-in-out infinite" }}>
+        {head(120,55)}{line({x1:120,y1:67,x2:120,y2:120})}{line({x1:120,y1:80,x2:95,y2:105})}{line({x1:120,y1:80,x2:145,y2:105})}
+        {line({x1:120,y1:120,x2:100,y2:150})}{line({x1:120,y1:120,x2:140,y2:150})}</g>);
+  }
+  return (
+    <svg viewBox="0 0 240 160" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+      {ground}{body}
+    </svg>
+  );
+}
+
+/* ============================ UI HELPERS =============================== */
+const Chip = ({ children, tone = C.tracer }) => (
+  <span style={{ fontFamily:"ui-monospace,monospace", fontSize:10, letterSpacing:1.5,
+    textTransform:"uppercase", color:tone, border:`1px solid ${tone}`, borderRadius:4,
+    padding:"2px 6px", whiteSpace:"nowrap" }}>{children}</span>
+);
+const Btn = ({ children, onClick, primary, style, disabled }) => (
+  <button onClick={onClick} disabled={disabled} style={{
+    background: primary ? C.tracer : "transparent",
+    color: primary ? "#181a10" : C.sand,
+    border: `1px solid ${primary ? C.tracer : C.line}`,
+    borderRadius: 8, padding: "12px 16px", fontWeight: 700, fontSize: 14,
+    letterSpacing: 0.5, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.4 : 1,
+    fontFamily:"inherit", width:"100%", ...style }}>{children}</button>
+);
+const stencil = { fontFamily:"ui-monospace,monospace", textTransform:"uppercase", letterSpacing:2 };
+
+/* ============================ APP ====================================== */
+function RangerFit() {
+  const { speak, ready: voiceReady } = useVoice();
+  const { arm, beep } = useBeep();
+
+  const [view, setView] = useState("home");
+  const [profil, setProfil] = useState({
+    prenom:"Frédéric", age:48, taille:169, poids:100, objectif:75,
+    niveau:0, conditions:[], zones:["pecs-bras","abdos"],
+  });
+  const [reglages, setReglages] = useState({ voix:true, debit:1, bips:true, wakelock:true });
+  const [historique, setHistorique] = useState([]); // {date, titre, duree, exos}
+  const [session, setSession] = useState(null);      // config séance en cours
+  const [panier, setPanier] = useState([]);          // séance à la carte
+
+  const jour = new Date().getDay(); // 0 = dimanche
+  const rotKey = ROTATION[jour];
+
+  /* -- construit la file d'attente (échauffement + circuit + repos) -- */
+  const buildQueue = useCallback((exIds, { rounds = 3, level = profil.niveau } = {}) => {
+    const warm = ["marche","cercles","rot"];
+    const q = [];
+    warm.forEach((id, i) => {
+      q.push({ id, phase:"warm", round:1, rounds:1, secs: EX[id].cible[0] });
+      q.push({ id, phase:"rest", secs: EX[id].repos, next: warm[i+1] || exIds[0] });
+    });
+    for (let r = 1; r <= rounds; r++) {
+      exIds.forEach((id, i) => {
+        const ex = EX[id];
+        const isTime = ex.type === "time";
+        q.push({
+          id, phase:"work", round:r, rounds,
+          secs: isTime ? ex.cible[level] : Math.max(30, ex.cible[level] * 3),
+          reps: isTime ? null : ex.cible[level], mode: ex.type,
+        });
+        const last = (r === rounds && i === exIds.length - 1);
+        if (!last) q.push({ id, phase:"rest", secs: ex.repos, next: exIds[i+1] || exIds[0] });
+      });
+    }
+    return q;
+  }, [profil.niveau]);
+
+  const startSession = useCallback((titre, exIds, rounds) => {
+    // adaptation conditions : swap impact -> régression si genoux/cardio cochés
+    const noImpact = profil.conditions.includes("genoux") || profil.conditions.includes("cardio");
+    const adapted = exIds.map(id => {
+      if (noImpact && EX[id].impact) {
+        const swap = { burpee:"burpeeL", jack:"genoux", genoux:"marche", climber:"gainage", course:"marche" };
+        return swap[id] || id;
+      }
+      return id;
+    });
+    arm();
+    setSession({ titre, exIds: adapted, rounds: rounds || 3, queue: buildQueue(adapted, { rounds: rounds || 3 }) });
+    setView("player");
+  }, [profil.conditions, buildQueue, arm]);
+
+  const finishSession = useCallback((completed) => {
+    if (session && completed) {
+      setHistorique(h => [{
+        date: new Date().toLocaleDateString("fr-FR", { weekday:"short", day:"numeric", month:"short" }),
+        titre: session.titre, exos: session.exIds.length, rounds: session.rounds,
+      }, ...h].slice(0, 60));
+    }
+    setSession(null);
+    setView(completed ? "home" : "home");
+  }, [session]);
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.sand,
+      fontFamily:"system-ui,-apple-system,Segoe UI,Roboto,sans-serif" }}>
+      <style>{ANIM_CSS}</style>
+
+      {/* -------- barre du haut -------- */}
+      {view !== "player" && (
+        <header style={{ position:"sticky", top:0, zIndex:20, background:"rgba(20,22,15,.95)",
+          borderBottom:`1px solid ${C.line}`, backdropFilter:"blur(6px)" }}>
+          <div style={{ maxWidth:520, margin:"0 auto", padding:"12px 16px",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div onClick={() => setView("home")} style={{ cursor:"pointer", ...stencil }}>
+              <div style={{ fontSize:17, fontWeight:800, color:C.sand }}>
+                RANGER<span style={{ color:C.tracer }}>·</span>FIT
+              </div>
+              <div style={{ fontSize:9, color:C.mute, letterSpacing:3 }}>CALISTHÉNIE MILITAIRE</div>
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <Chip tone={voiceReady ? C.go : C.mute}>{voiceReady ? "VOIX FR ✓" : "VOIX…"}</Chip>
+              <button onClick={() => setView("settings")} aria-label="Réglages"
+                style={{ background:"none", border:`1px solid ${C.line}`, color:C.sand,
+                borderRadius:8, width:34, height:34, cursor:"pointer" }}>⚙</button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      <main style={{ maxWidth:520, margin:"0 auto", padding: view==="player" ? 0 : "16px" }}>
+        {view === "home" && <Home {...{ profil, rotKey, startSession, setView, historique }} />}
+        {view === "library" && <Library {...{ setView }} />}
+        {view === "seances" && <SeanceList {...{ startSession, setView }} />}
+        {view === "builder" && <Builder {...{ panier, setPanier, startSession, setView }} />}
+        {view === "profile" && <Profile {...{ profil, setProfil, setView }} />}
+        {view === "history" && <History {...{ historique, setView }} />}
+        {view === "settings" && <Settings {...{ reglages, setReglages, setView, speak }} />}
+        {view === "player" && session && (
+          <Player {...{ session, profil, reglages, speak, beep, arm, onExit: finishSession }} />
+        )}
+      </main>
+
+      {/* -------- navigation basse -------- */}
+      {view !== "player" && (
+        <nav style={{ position:"sticky", bottom:0, background:"rgba(20,22,15,.97)",
+          borderTop:`1px solid ${C.line}`, backdropFilter:"blur(6px)" }}>
+          <div style={{ maxWidth:520, margin:"0 auto", display:"flex", justifyContent:"space-around", padding:"6px 0" }}>
+            {[["home","Base","▣"],["seances","Séances","◈"],["builder","À la carte","＋"],
+              ["library","Exos","≣"],["history","Suivi","◔"]].map(([v,l,i]) => (
+              <button key={v} onClick={() => setView(v)} style={{ background:"none", border:"none",
+                color: view===v ? C.tracer : C.mute, cursor:"pointer", display:"flex",
+                flexDirection:"column", alignItems:"center", gap:2, padding:"4px 10px", fontFamily:"inherit" }}>
+                <span style={{ fontSize:18 }}>{i}</span>
+                <span style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase" }}>{l}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+/* ============================ ÉCRAN : BASE ============================= */
+function Home({ profil, rotKey, startSession, setView, historique }) {
+  const perte = profil.poids - profil.objectif;
+  const seance = rotKey === "repos" ? null : SEANCES[rotKey];
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      {/* Ordre de mission */}
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+        <div style={{ ...stencil, fontSize:10, color:C.mute }}>ORDRE DE MISSION — {new Date().toLocaleDateString("fr-FR",{weekday:"long"}).toUpperCase()}</div>
+        {seance ? (
+          <>
+            <div style={{ fontSize:24, fontWeight:800, marginTop:6 }}>{seance.titre}</div>
+            <div style={{ color:C.mute, fontSize:13, marginBottom:12 }}>{seance.sous} · {seance.ex.length} exercices · 3 tours</div>
+            <Btn primary onClick={() => startSession(seance.titre, seance.ex, 3)}>▶ DÉMARRER LA SÉANCE</Btn>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize:24, fontWeight:800, marginTop:6 }}>Jour de repos</div>
+            <div style={{ color:C.mute, fontSize:13, marginBottom:12 }}>Récupération active : marche, étirements, hydratation.</div>
+            <Btn onClick={() => setView("seances")}>Choisir une séance quand même</Btn>
+          </>
+        )}
+      </section>
+
+      {/* Télémetrie profil */}
+      <section onClick={() => setView("profile")} style={{ cursor:"pointer", background:C.panel,
+        border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <div style={{ ...stencil, fontSize:10, color:C.mute }}>TÉLÉMÉTRIE — {profil.prenom.toUpperCase()}</div>
+          <Chip>{NIVEAUX[profil.niveau]}</Chip>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, textAlign:"center" }}>
+          {[["ÂGE",profil.age],["POIDS",profil.poids+" kg"],["OBJECTIF",profil.objectif+" kg"],["À PERDRE",perte+" kg"]].map(([l,v]) => (
+            <div key={l}>
+              <div style={{ fontSize:19, fontWeight:800, color:C.tracer, fontFamily:"ui-monospace,monospace" }}>{v}</div>
+              <div style={{ fontSize:9, color:C.mute, letterSpacing:1 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:12 }}>
+          <div style={{ height:8, background:C.panel2, borderRadius:4, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:"6%", background:C.go }} />
+          </div>
+          <div style={{ fontSize:10, color:C.mute, marginTop:4 }}>Objectif {profil.objectif} kg · priorité pectoraux · abdos · bras</div>
+        </div>
+      </section>
+
+      {/* Accès rapide séances ciblées */}
+      <section>
+        <div style={{ ...stencil, fontSize:11, color:C.mute, marginBottom:8 }}>SÉANCES CIBLÉES</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {Object.entries(SEANCES).map(([k,s]) => (
+            <button key={k} onClick={() => startSession(s.titre, s.ex, 3)} style={{ textAlign:"left",
+              background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:14, cursor:"pointer",
+              color:C.sand, fontFamily:"inherit" }}>
+              <div style={{ fontWeight:800, fontSize:15 }}>{s.titre}</div>
+              <div style={{ color:C.mute, fontSize:11, marginTop:2 }}>{s.ex.length} exos</div>
+            </button>
+          ))}
+          <button onClick={() => setView("builder")} style={{ textAlign:"left",
+            background:C.panel2, border:`1px dashed ${C.tracer}`, borderRadius:12, padding:14, cursor:"pointer",
+            color:C.tracer, fontFamily:"inherit" }}>
+            <div style={{ fontWeight:800, fontSize:15 }}>＋ À la carte</div>
+            <div style={{ fontSize:11, marginTop:2 }}>Compose ta séance</div>
+          </button>
+        </div>
+      </section>
+
+      {historique.length > 0 && (
+        <div style={{ fontSize:12, color:C.mute, textAlign:"center" }}>
+          Dernière séance : {historique[0].titre} · {historique[0].date}
+        </div>
+      )}
+
+      <p style={{ fontSize:11, color:C.mute, lineHeight:1.5, textAlign:"center", padding:"0 8px" }}>
+        Démonstrations animées (non photoréalistes). Échauffe-toi, garde une bonne forme,
+        arrête si douleur. Avis médical conseillé avant de reprendre le sport.
+      </p>
+    </div>
+  );
+}
+
+/* ====================== ÉCRAN : LISTE DES SÉANCES ===================== */
+function SeanceList({ startSession, setView }) {
+  const [rounds, setRounds] = useState(3);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>SÉANCES</div>
+      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        <span style={{ fontSize:12, color:C.mute }}>Tours :</span>
+        {[2,3,4,5].map(n => (
+          <button key={n} onClick={() => setRounds(n)} style={{ width:38, height:38, borderRadius:8,
+            border:`1px solid ${rounds===n?C.tracer:C.line}`, background: rounds===n?C.tracer:"transparent",
+            color: rounds===n?"#181a10":C.sand, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{n}</button>
+        ))}
+      </div>
+      {Object.entries(SEANCES).map(([k,s]) => (
+        <div key={k} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"start" }}>
+            <div>
+              <div style={{ fontWeight:800, fontSize:18 }}>{s.titre}</div>
+              <div style={{ color:C.mute, fontSize:12, marginBottom:8 }}>{s.sous}</div>
+            </div>
+            <Chip>{s.ex.length} EXOS</Chip>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+            {s.ex.map(id => <span key={id} style={{ fontSize:11, color:C.mute,
+              background:C.panel2, borderRadius:6, padding:"3px 8px" }}>{EX[id].nom}</span>)}
+          </div>
+          <Btn primary onClick={() => startSession(s.titre, s.ex, rounds)}>▶ DÉMARRER · {rounds} TOURS</Btn>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ======================= ÉCRAN : À LA CARTE =========================== */
+function Builder({ panier, setPanier, startSession, setView }) {
+  const [zone, setZone] = useState("pecs-bras");
+  const [rounds, setRounds] = useState(3);
+  const zones = [["pecs-bras","Pecs/Bras"],["abdos","Abdos"],["dos","Dos"],["jambes","Jambes"],["cardio","Cardio"]];
+  const list = Object.entries(EX).filter(([id,e]) => e.zone === zone);
+  const toggle = (id) => setPanier(p => p.includes(id) ? p.filter(x => x!==id) : [...p, id]);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14, paddingBottom:80 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>SÉANCE À LA CARTE</div>
+      <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4 }}>
+        {zones.map(([z,l]) => (
+          <button key={z} onClick={() => setZone(z)} style={{ whiteSpace:"nowrap", padding:"8px 12px",
+            borderRadius:20, border:`1px solid ${zone===z?C.tracer:C.line}`, background: zone===z?C.tracer:"transparent",
+            color: zone===z?"#181a10":C.sand, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>{l}</button>
+        ))}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {list.map(([id,e]) => {
+          const on = panier.includes(id);
+          return (
+            <button key={id} onClick={() => toggle(id)} style={{ display:"flex", alignItems:"center", gap:12,
+              background: on?C.panel2:C.panel, border:`1px solid ${on?C.tracer:C.line}`, borderRadius:12,
+              padding:10, cursor:"pointer", color:C.sand, textAlign:"left", fontFamily:"inherit" }}>
+              <div style={{ width:56, height:44, background:C.bg, borderRadius:8, flexShrink:0, overflow:"hidden" }}>
+                <Demo anim={e.anim} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:14 }}>{e.nom}</div>
+                <div style={{ fontSize:11, color:C.mute }}>{e.muscles}
+                  {e.impact && <span style={{ color:C.danger }}> · impact</span>}</div>
+              </div>
+              <span style={{ color: on?C.tracer:C.mute, fontSize:20 }}>{on ? "✓" : "＋"}</span>
+            </button>
+          );
+        })}
+      </div>
+      {panier.length > 0 && (
+        <div style={{ position:"sticky", bottom:12, background:C.panel, border:`1px solid ${C.tracer}`,
+          borderRadius:14, padding:14, display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontWeight:800 }}>{panier.length} exercice(s)</span>
+            <div style={{ display:"flex", gap:6 }}>
+              {[2,3,4].map(n => (
+                <button key={n} onClick={() => setRounds(n)} style={{ width:34, height:34, borderRadius:8,
+                  border:`1px solid ${rounds===n?C.tracer:C.line}`, background:rounds===n?C.tracer:"transparent",
+                  color:rounds===n?"#181a10":C.sand, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{n}</button>
+              ))}
+            </div>
+          </div>
+          <Btn primary onClick={() => startSession("Séance à la carte", panier, rounds)}>▶ DÉMARRER · {rounds} TOURS</Btn>
+          <Btn onClick={() => setPanier([])}>Vider</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ====================== ÉCRAN : BIBLIOTHÈQUE ========================== */
+function Library({ setView }) {
+  const [open, setOpen] = useState(null);
+  const groups = {};
+  Object.entries(EX).forEach(([id,e]) => { (groups[e.zone] = groups[e.zone] || []).push([id,e]); });
+  const zLabel = { echauffement:"Échauffement", "pecs-bras":"Pectoraux & Bras", abdos:"Abdos & Gainage",
+    dos:"Dos", jambes:"Jambes", cardio:"Conditionnement" };
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>BIBLIOTHÈQUE — {Object.keys(EX).length} EXERCICES</div>
+      {Object.entries(groups).map(([z,items]) => (
+        <div key={z}>
+          <div style={{ fontWeight:800, fontSize:16, marginBottom:8, color:C.tracer }}>{zLabel[z] || z}</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {items.map(([id,e]) => (
+              <div key={id} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, overflow:"hidden" }}>
+                <button onClick={() => setOpen(open===id?null:id)} style={{ width:"100%", display:"flex",
+                  alignItems:"center", gap:12, padding:10, background:"none", border:"none", cursor:"pointer",
+                  color:C.sand, textAlign:"left", fontFamily:"inherit" }}>
+                  <div style={{ width:64, height:48, background:C.bg, borderRadius:8, flexShrink:0, overflow:"hidden" }}>
+                    <Demo anim={e.anim} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700 }}>{e.nom}</div>
+                    <div style={{ fontSize:11, color:C.mute }}>{e.muscles}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:4 }}>
+                    {e.impact && <Chip tone={C.danger}>IMPACT</Chip>}
+                    <Chip>{e.type==="time"?"DURÉE":"REPS"}</Chip>
+                  </div>
+                </button>
+                {open===id && (
+                  <div style={{ padding:"0 12px 12px", borderTop:`1px solid ${C.line}` }}>
+                    <div style={{ height:150, background:C.bg, borderRadius:10, margin:"12px 0", overflow:"hidden" }}>
+                      <Demo anim={e.anim} videoUrl={e.videoUrl} />
+                    </div>
+                    <Line l="Consigne" v={e.cue} />
+                    <Line l="Plus facile" v={e.reg} />
+                    <Line l="Plus dur" v={e.prog} />
+                    <Line l="Repères" v={`Débutant ${e.cible[0]}${e.type==="time"?" s":" reps"} · Inter ${e.cible[1]} · Avancé ${e.cible[2]}`} />
+                    <VideoBlock id={id} nom={e.nom} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+const Line = ({ l, v }) => (
+  <div style={{ display:"flex", gap:8, fontSize:13, marginTop:6 }}>
+    <span style={{ color:C.mute, minWidth:78, fontSize:11, ...stencil }}>{l}</span>
+    <span style={{ flex:1 }}>{v}</span>
+  </div>
+);
+
+/* Bloc vidéo réutilisable : embarque une vraie vidéo si dispo, sinon recherche */
+function VideoBlock({ id, nom }) {
+  const [show, setShow] = useState(false);
+  const vid = VIDEOS[id];
+  if (!vid) {
+    return (
+      <a href={ytSearch(nom)} target="_blank" rel="noopener noreferrer"
+        style={{ display:"block", textAlign:"center", marginTop:10, padding:"10px",
+        border:`1px solid ${C.line}`, borderRadius:8, color:C.tracer, textDecoration:"none",
+        fontWeight:700, fontSize:13 }}>▶ Chercher une démo (YouTube)</a>
+    );
+  }
+  return (
+    <div style={{ marginTop:10 }}>
+      {!show ? (
+        <button onClick={() => setShow(true)} style={{ width:"100%", padding:"10px", borderRadius:8,
+          border:`1px solid ${C.tracer}`, background:"transparent", color:C.tracer, fontWeight:700,
+          fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>▶ Voir la démo en vidéo</button>
+      ) : (
+        <>
+          <div style={{ position:"relative", paddingTop:"56.25%", borderRadius:10, overflow:"hidden", background:"#000" }}>
+            <iframe title={nom} src={ytEmbed(vid)} allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:0 }} />
+          </div>
+          <div style={{ display:"flex", gap:10, marginTop:8, fontSize:12 }}>
+            <a href={ytWatch(vid)} target="_blank" rel="noopener noreferrer" style={{ color:C.mute }}>Ouvrir sur YouTube</a>
+            <a href={ytSearch(nom)} target="_blank" rel="noopener noreferrer" style={{ color:C.mute }}>Autres démos</a>
+            <button onClick={() => setShow(false)} style={{ marginLeft:"auto", background:"none", border:"none",
+              color:C.tracer, cursor:"pointer", fontFamily:"inherit", fontSize:12 }}>Masquer</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ======================== ÉCRAN : PROFIL ============================== */
+function Profile({ profil, setProfil, setView }) {
+  const set = (k,v) => setProfil(p => ({ ...p, [k]:v }));
+  const toggleCond = (id) => setProfil(p => ({ ...p,
+    conditions: p.conditions.includes(id) ? p.conditions.filter(x=>x!==id) : [...p.conditions, id] }));
+  const num = (label, key, unit) => (
+    <label style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+      padding:"12px 0", borderBottom:`1px solid ${C.line}` }}>
+      <span style={{ fontSize:14 }}>{label}</span>
+      <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <input type="number" value={profil[key]} onChange={e => set(key, +e.target.value)}
+          style={{ width:70, background:C.bg, border:`1px solid ${C.line}`, color:C.tracer,
+          borderRadius:8, padding:"8px 10px", fontSize:16, fontWeight:700, textAlign:"right",
+          fontFamily:"ui-monospace,monospace" }} />
+        <span style={{ color:C.mute, fontSize:12, width:26 }}>{unit}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>PROFIL OPÉRATEUR</div>
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:"4px 16px" }}>
+        {num("Âge","age","ans")}{num("Taille","taille","cm")}{num("Poids actuel","poids","kg")}{num("Objectif","objectif","kg")}
+      </section>
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+        <div style={{ fontSize:14, marginBottom:10 }}>Niveau</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {NIVEAUX.map((n,i) => (
+            <button key={n} onClick={() => set("niveau",i)} style={{ flex:1, padding:"10px", borderRadius:8,
+              border:`1px solid ${profil.niveau===i?C.tracer:C.line}`, background:profil.niveau===i?C.tracer:"transparent",
+              color:profil.niveau===i?"#181a10":C.sand, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>{n}</button>
+          ))}
+        </div>
+      </section>
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+        <div style={{ fontSize:14, marginBottom:4 }}>Précautions santé</div>
+        <div style={{ fontSize:11, color:C.mute, marginBottom:10 }}>Coché = les exercices à impact sont automatiquement remplacés par une version douce.</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+          {CONDITIONS.map(c => {
+            const on = profil.conditions.includes(c.id);
+            return <button key={c.id} onClick={() => toggleCond(c.id)} style={{ padding:"8px 12px", borderRadius:20,
+              border:`1px solid ${on?C.danger:C.line}`, background:on?"rgba(192,96,58,.18)":"transparent",
+              color:on?C.danger:C.sand, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>{on?"✓ ":""}{c.label}</button>;
+          })}
+        </div>
+      </section>
+      <Btn primary onClick={() => setView("home")}>Enregistrer</Btn>
+    </div>
+  );
+}
+
+/* ======================== ÉCRAN : SUIVI =============================== */
+function History({ historique, setView }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>JOURNAL D'OPÉRATIONS</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <Stat n={historique.length} l="Séances" />
+        <Stat n={historique.reduce((a,h)=>a+h.exos,0)} l="Exercices" />
+      </div>
+      {historique.length === 0 ? (
+        <div style={{ background:C.panel, border:`1px dashed ${C.line}`, borderRadius:14, padding:24, textAlign:"center", color:C.mute }}>
+          Aucune séance enregistrée. Lance ta première mission depuis la Base.
+        </div>
+      ) : historique.map((h,i) => (
+        <div key={i} style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:14,
+          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontWeight:700 }}>{h.titre}</div>
+            <div style={{ fontSize:12, color:C.mute }}>{h.date}</div>
+          </div>
+          <Chip tone={C.go}>{h.rounds}×{h.exos}</Chip>
+        </div>
+      ))}
+      <div style={{ fontSize:11, color:C.mute, textAlign:"center" }}>
+        L'historique est conservé pendant la session. La version déployée (Netlify) le sauvegardera durablement.
+      </div>
+    </div>
+  );
+}
+const Stat = ({ n, l }) => (
+  <div style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:12, padding:16, textAlign:"center" }}>
+    <div style={{ fontSize:30, fontWeight:800, color:C.tracer, fontFamily:"ui-monospace,monospace" }}>{n}</div>
+    <div style={{ fontSize:11, color:C.mute, ...stencil }}>{l}</div>
+  </div>
+);
+
+/* ======================== ÉCRAN : RÉGLAGES ============================ */
+function Settings({ reglages, setReglages, setView, speak }) {
+  const set = (k,v) => setReglages(r => ({ ...r, [k]:v }));
+  const Row = ({ label, k, sub }) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+      padding:"14px 0", borderBottom:`1px solid ${C.line}` }}>
+      <div><div style={{ fontSize:14 }}>{label}</div>{sub && <div style={{ fontSize:11, color:C.mute }}>{sub}</div>}</div>
+      <button onClick={() => set(k, !reglages[k])} style={{ width:52, height:30, borderRadius:20,
+        background: reglages[k]?C.go:C.panel2, border:`1px solid ${C.line}`, position:"relative", cursor:"pointer" }}>
+        <span style={{ position:"absolute", top:2, left: reglages[k]?24:2, width:24, height:24, borderRadius:"50%",
+          background:C.sand, transition:"left .15s" }} />
+      </button>
+    </div>
+  );
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ ...stencil, fontSize:11, color:C.mute }}>RÉGLAGES</div>
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:"0 16px" }}>
+        <Row label="Coach vocal (français)" k="voix" sub="Annonces et compte à rebours" />
+        <Row label="Bips de transition" k="bips" sub="Signal sonore 3-2-1" />
+        <Row label="Écran toujours allumé" k="wakelock" sub="Wake lock pendant la séance" />
+      </section>
+      <section style={{ background:C.panel, border:`1px solid ${C.line}`, borderRadius:14, padding:16 }}>
+        <div style={{ fontSize:14, marginBottom:8 }}>Débit de la voix : <b style={{ color:C.tracer }}>{reglages.debit.toFixed(1)}×</b></div>
+        <input type="range" min="0.7" max="1.3" step="0.1" value={reglages.debit}
+          onChange={e => set("debit", +e.target.value)} style={{ width:"100%", accentColor:C.tracer }} />
+        <Btn style={{ marginTop:12 }} onClick={() => speak("Séance terminée. Excellent travail, Frédéric.", { rate:reglages.debit, enabled:true })}>
+          🔊 Tester la voix
+        </Btn>
+      </section>
+      <Btn primary onClick={() => setView("home")}>Retour</Btn>
+    </div>
+  );
+}
+
+/* ======================== LECTEUR DE SÉANCE ========================== */
+function Player({ session, profil, reglages, speak, beep, arm, onExit }) {
+  const queue = session.queue;
+  const [idx, setIdx] = useState(0);
+  const [t, setT] = useState(queue[0]?.secs || 0);
+  const [paused, setPaused] = useState(false);
+  const [done, setDone] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  useWakeLock(reglages.wakelock && !paused && !done);
+
+  const openVideo = () => {
+    if (VIDEOS[step.id]) { setShowVideo(true); setPaused(true); try { window.speechSynthesis.cancel(); } catch(e){} }
+    else window.open(ytSearch(ex.nom), "_blank", "noopener");
+  };
+  const closeVideo = () => { setShowVideo(false); setPaused(false); };
+
+  const step = queue[idx];
+  const ex = step ? EX[step.id] : null;
+  const isWork = step?.phase === "work";
+  const isRest = step?.phase === "rest";
+  const isWarm = step?.phase === "warm";
+
+  // annonce vocale au changement d'étape
+  useEffect(() => {
+    if (!step) return;
+    setShowVideo(false);
+    setT(step.secs);
+    if (isRest) {
+      const nx = EX[step.next];
+      speak(`Repos. ${step.secs} secondes. Ensuite : ${nx ? nx.nom : ""}.`, { rate:reglages.debit, enabled:reglages.voix });
+    } else {
+      const e = EX[step.id];
+      const q = e.type === "time" ? `${step.secs} secondes.` : `${step.reps} répétitions.`;
+      const tour = isWork ? `Tour ${step.round} sur ${step.rounds}. ` : "Échauffement. ";
+      speak(`${tour}${e.nom}. ${q} ${e.cue}`, { rate:reglages.debit, enabled:reglages.voix });
+    }
+  }, [idx]); // eslint-disable-line
+
+  // minuteur
+  useEffect(() => {
+    if (paused || done || !step) return;
+    if (t <= 0) { advance(); return; }
+    const id = setTimeout(() => {
+      setT(v => {
+        const nv = v - 1;
+        if (reglages.bips && nv > 0 && nv <= 3) beep(nv === 1 ? 880 : 620, 110);
+        if (nv === 5 && step.phase !== "rest") speak("Encore 5 secondes.", { rate:reglages.debit, enabled:reglages.voix });
+        return nv;
+      });
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [t, paused, done, idx]); // eslint-disable-line
+
+  const advance = useCallback(() => {
+    if (idx + 1 >= queue.length) {
+      setDone(true);
+      speak("Séance terminée. Excellent travail, Frédéric.", { rate:reglages.debit, enabled:reglages.voix });
+      return;
+    }
+    if (reglages.bips) beep(740, 140);
+    setIdx(i => i + 1);
+  }, [idx, queue.length, reglages, speak, beep]);
+
+  if (done) {
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column",
+        justifyContent:"center", alignItems:"center", gap:20, padding:24, textAlign:"center" }}>
+        <div style={{ fontSize:60 }}>🎖️</div>
+        <div style={{ ...stencil, fontSize:24, fontWeight:800 }}>MISSION ACCOMPLIE</div>
+        <div style={{ color:C.mute }}>{session.titre} · {session.rounds} tours · {session.exIds.length} exercices</div>
+        <div style={{ width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:10 }}>
+          <Btn primary onClick={() => onExit(true)}>Enregistrer et quitter</Btn>
+        </div>
+      </div>
+    );
+  }
+  if (!step) return null;
+
+  const bg = isRest ? C.panel2 : C.bg;
+  const total = step.secs || 1;
+  const pct = Math.max(0, Math.min(100, (t/total)*100));
+  const nextStep = queue[idx+1];
+  const nextName = nextStep ? (nextStep.phase==="rest" ? "Repos" : EX[nextStep.id].nom) : "Fin";
+
+  return (
+    <div style={{ minHeight:"100vh", background:bg, display:"flex", flexDirection:"column", padding:16 }}>
+      {/* en-tête */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <button onClick={() => onExit(false)} style={{ background:"none", border:`1px solid ${C.line}`,
+          color:C.sand, borderRadius:8, padding:"6px 12px", cursor:"pointer", fontFamily:"inherit" }}>✕ Quitter</button>
+        <div style={{ ...stencil, fontSize:11, color:C.mute }}>
+          {isWarm ? "ÉCHAUFFEMENT" : isRest ? "REPOS" : `TOUR ${step.round}/${step.rounds}`}
+        </div>
+        <div style={{ fontFamily:"ui-monospace,monospace", fontSize:12, color:C.mute }}>{idx+1}/{queue.length}</div>
+      </div>
+
+      {/* progression globale */}
+      <div style={{ height:4, background:C.panel2, borderRadius:2, margin:"12px 0 8px", overflow:"hidden" }}>
+        <div style={{ height:"100%", width:`${((idx)/queue.length)*100}%`, background:C.line }} />
+      </div>
+
+      {/* corps */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", gap:14 }}>
+        {isRest ? (
+          <>
+            <div style={{ ...stencil, fontSize:16, color:C.mute }}>REPOS</div>
+            <div style={{ fontSize:82, fontWeight:800, fontFamily:"ui-monospace,monospace", color:C.tracer }}>{t}</div>
+            <div style={{ color:C.mute }}>Ensuite : <b style={{ color:C.sand }}>{EX[step.next]?.nom}</b></div>
+            <Btn style={{ maxWidth:220, marginTop:8 }} onClick={advance}>Passer le repos →</Btn>
+          </>
+        ) : showVideo ? (
+          <div style={{ width:"100%" }}>
+            <div style={{ ...stencil, fontSize:12, color:C.mute, textAlign:"center", marginBottom:10 }}>DÉMONSTRATION — {ex.nom}</div>
+            <div style={{ position:"relative", paddingTop:"56.25%", borderRadius:14, overflow:"hidden", background:"#000" }}>
+              <iframe title={ex.nom} src={ytEmbed(VIDEOS[step.id])}
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:0 }} />
+            </div>
+            <div style={{ display:"flex", gap:12, justifyContent:"center", margin:"10px 0", fontSize:12 }}>
+              <a href={ytWatch(VIDEOS[step.id])} target="_blank" rel="noopener noreferrer" style={{ color:C.mute }}>Ouvrir sur YouTube</a>
+              <a href={ytSearch(ex.nom)} target="_blank" rel="noopener noreferrer" style={{ color:C.mute }}>Autres démos</a>
+            </div>
+            <Btn primary style={{ maxWidth:280, margin:"0 auto" }} onClick={closeVideo}>✓ Reprendre la séance</Btn>
+          </div>
+        ) : (
+          <>
+            <div style={{ width:"100%", maxWidth:360, height:200, background:C.panel, border:`1px solid ${C.line}`,
+              borderRadius:16, overflow:"hidden" }}>
+              <Demo anim={ex.anim} videoUrl={ex.videoUrl} />
+            </div>
+            <div style={{ fontSize:24, fontWeight:800, textAlign:"center" }}>{ex.nom}</div>
+            <div style={{ fontSize:12, color:C.mute, textAlign:"center", maxWidth:320 }}>{ex.cue}</div>
+            {ex.type === "time" ? (
+              <div style={{ fontSize:82, fontWeight:800, fontFamily:"ui-monospace,monospace",
+                color: t<=3?C.danger:C.tracer }}>{t}</div>
+            ) : (
+              <>
+                <div style={{ fontSize:70, fontWeight:800, fontFamily:"ui-monospace,monospace", color:C.tracer }}>
+                  {step.reps}<span style={{ fontSize:22, color:C.mute }}> reps</span></div>
+                <Btn primary style={{ maxWidth:260 }} onClick={advance}>✓ J'ai terminé</Btn>
+                <div style={{ fontSize:11, color:C.mute }}>ou avance auto dans {t}s</div>
+              </>
+            )}
+            <button onClick={openVideo} style={{ marginTop:4, background:"none", border:`1px solid ${C.line}`,
+              color:C.tracer, borderRadius:8, padding:"8px 14px", fontWeight:700, fontSize:13,
+              cursor:"pointer", fontFamily:"inherit" }}>
+              {VIDEOS[step.id] ? "▶ Voir la démo en vidéo" : "▶ Chercher une démo"}
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* barre du temps de l'étape */}
+      <div style={{ height:6, background:C.panel2, borderRadius:3, overflow:"hidden", margin:"8px 0 12px" }}>
+        <div style={{ height:"100%", width:`${pct}%`, background: isRest?C.go:C.tracer, transition:"width 1s linear" }} />
+      </div>
+
+      {/* contrôles */}
+      <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <Btn onClick={() => { arm(); setPaused(p => !p); }} style={{ flex:1 }}>{paused ? "▶ Reprendre" : "❚❚ Pause"}</Btn>
+        <Btn onClick={advance} style={{ flex:1 }}>Suivant →</Btn>
+      </div>
+      <div style={{ textAlign:"center", fontSize:11, color:C.mute, marginTop:8 }}>À suivre : {nextName}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<RangerFit />);
+</script>
+</body>
+</html>
